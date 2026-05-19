@@ -1,0 +1,18 @@
+{
+  "name": "FOREST",
+  "short_name": "FOREST",
+  "description": "A personal forest for seeds, priorities, and projects.",
+  "start_url": "/Forest2.0/index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#f2eedf",
+  "icons": [
+    {
+      "src": "forest-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
