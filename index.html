@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FOREST</title>
+<meta name="theme-color" content="#f0ebe0">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+
+  --bg:     #f0ebe0;
+  --paper:  #f7f4eb;
+  --text:   #1c1a16;
+  --text2:  #4a4640;
+  --muted:  #8a8278;
+  --border: #ccc8bc;
+  --border2:#d8d4c8;
+  --green:  #2d5a1b;
+  --blue:   #2a5298;
+
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono:  'Courier New', Courier, monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--grain);
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: multiply;
+}
+
+/* ── APP LABEL ── */
+.app-label {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── PLACEHOLDER ── */
+.placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.15;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text);
+  user-select: none;
+}
+
+/* ── SEED TRAY ── */
+.seed-tray {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 55dvh;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.seed-item {
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: seedIn 0.22s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+
+@keyframes seedIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.seed-item-text {
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+
+/* ── CAPTURE BUTTON ── */
+.capture-btn {
+  position: fixed;
+  left: 50%;
+  /* one button-height (~92px) above the previous 18% position */
+  bottom: calc(18% + 92px);
+  transform: translateX(-50%);
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: var(--green);
+  border: none;
+  color: #fff;
+  font-size: 40px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 28px rgba(45,90,27,0.38), 0 2px 8px rgba(45,90,27,0.18);
+  transition: transform 0.14s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.14s ease, opacity 0.2s ease;
+  z-index: 10;
+  touch-action: none;
+  user-select: none;
+}
+
+.capture-btn:active {
+  transform: translateX(-50%) scale(0.91);
+  box-shadow: 0 3px 12px rgba(45,90,27,0.22);
+}
+
+.capture-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) scale(0.88);
+}
+
+/* ── CAPTURE PANEL ── */
+.capture-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.capture-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28,26,22,0);
+  transition: background 0.28s ease;
+}
+
+.capture-panel.open .capture-backdrop {
+  background: rgba(28,26,22,0.42);
+  pointer-events: all;
+}
+
+.capture-sheet {
+  position: relative;
+  background: var(--paper);
+  border-top: 1.5px solid var(--border);
+  border-radius: 18px 18px 0 0;
+  padding: 20px 20px 12px;
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.22,1,0.36,1);
+  pointer-events: all;
+  box-shadow: 0 -6px 32px rgba(0,0,0,0.10);
+}
+
+.capture-panel.open .capture-sheet {
+  transform: translateY(0);
+}
+
+.capture-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 18px;
+}
+
+.capture-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.capture-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--border2);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 20px;
+  padding: 8px 0 12px;
+  outline: none;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  caret-color: var(--green);
+  transition: border-color 0.18s;
+}
+
+.capture-input:focus {
+  border-bottom-color: var(--green);
+}
+
+.capture-input::placeholder {
+  color: var(--border);
+  font-style: italic;
+  font-size: 18px;
+}
+
+/* Cancel row */
+.capture-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 14px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.capture-cancel {
+  background: none;
+  border: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 10px 4px;
+  min-height: 44px;
+}
+
+/* ── DESTINATION BUTTONS (post-capture) ── */
+.dest-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.dest-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28,26,22,0);
+  transition: background 0.28s ease;
+}
+
+.dest-panel.open .dest-backdrop {
+  background: rgba(28,26,22,0.52);
+  pointer-events: all;
+}
+
+.dest-sheet {
+  position: relative;
+  background: var(--paper);
+  border-top: 1.5px solid var(--border);
+  border-radius: 18px 18px 0 0;
+  padding: 24px 20px 36px;
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.22,1,0.36,1);
+  pointer-events: all;
+  box-shadow: 0 -6px 32px rgba(0,0,0,0.10);
+}
+
+.dest-panel.open .dest-sheet {
+  transform: translateY(0);
+}
+
+.dest-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 20px;
+}
+
+.dest-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.dest-seed-preview {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 22px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.dest-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dest-btn {
+  height: 92px;
+  border-radius: 10px;
+  border: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.12s;
+  touch-action: none;
+  user-select: none;
+}
+
+.dest-btn:active {
+  transform: scale(0.94);
+  opacity: 0.85;
+}
+
+.dest-btn.tasks {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(42,82,152,0.30);
+}
+
+.dest-btn.projects {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(45,90,27,0.30);
+}
+
+/* ── TOAST ── */
+.seed-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 200;
+  white-space: nowrap;
+}
+
+.seed-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+</style>
+</head>
+<body>
+
+<div class="app-label">Forest</div>
+<div class="seed-tray" id="seed-tray"></div>
+<div class="placeholder">what needs doing?</div>
+
+<!-- Capture button -->
+<button class="capture-btn" id="capture-btn" onclick="openCapture()" aria-label="Capture a seed">+</button>
+
+<!-- Capture panel -->
+<div class="capture-panel" id="capture-panel">
+  <div class="capture-backdrop" onclick="closeCapture()"></div>
+  <div class="capture-sheet">
+    <div class="capture-handle"></div>
+    <div class="capture-label">New Seed</div>
+    <input
+      class="capture-input"
+      id="capture-input"
+      type="text"
+      placeholder="what's on your mind…"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      maxlength="200"
+    >
+    <div class="capture-actions">
+      <button class="capture-cancel" onclick="closeCapture()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Destination panel (appears after capture) -->
+<div class="dest-panel" id="dest-panel">
+  <div class="dest-backdrop"></div>
+  <div class="dest-sheet">
+    <div class="dest-handle"></div>
+    <div class="dest-label">Where does this seed go?</div>
+    <div class="dest-seed-preview" id="dest-preview"></div>
+    <div class="dest-buttons">
+      <button class="dest-btn tasks" onclick="placeSeed('tasks')">Tasks</button>
+      <button class="dest-btn projects" onclick="placeSeed('projects')">Projects</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="seed-toast" id="seed-toast"></div>
+
+<script>
+// ── STATE ──
+const STORAGE_KEY = 'forest_seeds';
+
+function loadSeeds() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveSeeds(seeds) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(seeds)); } catch(e) {}
+}
+
+let seeds = loadSeeds();
+let pendingSeed = null;
+
+function generateSeedId() {
+  const max = seeds.reduce((m, s) => {
+    const n = parseInt((s.id || '').replace('S',''), 10);
+    return isNaN(n) ? m : Math.max(m, n);
+  }, 0);
+  return 'S' + String(max + 1).padStart(4, '0');
+}
+
+// ── ELEMENTS ──
+const capturePanel = document.getElementById('capture-panel');
+const destPanel    = document.getElementById('dest-panel');
+const input        = document.getElementById('capture-input');
+const captureBtn   = document.getElementById('capture-btn');
+
+// ── CAPTURE ──
+function openCapture() {
+  capturePanel.classList.add('open');
+  captureBtn.classList.add('hidden');
+  setTimeout(() => input.focus(), 60);
+}
+
+function closeCapture() {
+  input.blur();
+  capturePanel.classList.remove('open');
+  captureBtn.classList.remove('hidden');
+  input.value = '';
+}
+
+function submitCapture() {
+  const text = input.value.trim();
+  if (!text) return;
+
+  // Store seed as unplaced
+  pendingSeed = {
+    id: generateSeedId(),
+    text: text,
+    ts: Date.now(),
+    placed: false,
+    destination: null,
+    state: 'dormant'
+  };
+
+  // Dismiss capture, show destination chooser
+  input.blur();
+  capturePanel.classList.remove('open');
+  document.getElementById('dest-preview').textContent = text;
+  destPanel.classList.add('open');
+  input.value = '';
+}
+
+// ── DESTINATION ──
+function placeSeed(destination) {
+  if (!pendingSeed) return;
+
+  pendingSeed.placed = true;
+  pendingSeed.destination = destination;
+  seeds.unshift(pendingSeed);
+  saveSeeds(seeds);
+
+  destPanel.classList.remove('open');
+  captureBtn.classList.remove('hidden');
+
+  addSeedToTray(pendingSeed);
+  showToast('Seed has been stored');
+  haptic([15, 10, 15]);
+
+  pendingSeed = null;
+}
+
+// ── INPUT ──
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitCapture(); }
+  if (e.key === 'Escape') closeCapture();
+});
+
+// ── SEED TRAY ──
+function addSeedToTray(seed) {
+  const tray = document.getElementById('seed-tray');
+  const el = document.createElement('div');
+  el.className = 'seed-item';
+  const tag = seed.destination
+    ? `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-left:8px;">${seed.destination}</span>`
+    : '';
+  el.innerHTML = `<span class="seed-item-text">${esc(seed.text)}</span>${tag}`;
+  tray.insertBefore(el, tray.firstChild);
+}
+
+// ── TOAST ──
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('seed-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+// ── UTILS ──
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function haptic(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch(e) {} }
+
+document.getElementById('capture-btn').addEventListener('pointerdown', () => haptic(12));
+
+// ── INIT ──
+seeds.forEach(seed => addSeedToTray(seed));
+</script>
+</body>
+</html>
